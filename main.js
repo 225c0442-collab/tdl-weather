@@ -523,3 +523,50 @@ function getWMO(w) {
   if (w >= 71 && w <= 77) return '❄️'; if (w >= 80 && w <= 82) return '☔️'; if (w >= 95) return '⚡️☔️';
   return w;
 }
+
+// ===== 関連アプリモーダル =====
+(function () {
+  if (!document.getElementById('appsBtn')) return;
+  var apps = [
+    { title: 'ポータルサイトに戻る', desc: 'Web Applications Portfolio を開く', url: 'https://class.tama.net/~p225C0442/', action: 'portal' },
+    { title: '渋谷カフェマップ', desc: '渋谷周辺のカフェを地図で探索', url: 'https://class.tama.net/~p225C0442/cafe-map/' },
+    { title: '新宿ラーメンマップ', desc: '新宿エリアのラーメン店を探索', url: 'https://class.tama.net/~p225C0442/cafe-map/shinjuku-ramen-map/' },
+    { title: 'おみくじ', desc: '今日の運勢を占う', url: 'https://class.tama.net/u/p225C0442/20260519/omikuji.html' }
+  ];
+  var currentHref = location.href.replace(/\/$/, '');
+  function renderAppsModal() {
+    var body = document.getElementById('appsBody');
+    var html = apps.map(function (a) {
+      if (!a.action) {
+        var appUrl = (a.url || '').replace(/\/$/, '');
+        if (currentHref.indexOf(appUrl) !== -1 || appUrl.indexOf(currentHref) !== -1) return '';
+      }
+      return '<div class="app-link-card"' + (a.action ? ' data-action="portal"' : ' data-url="' + escapeHTML(a.url) + '"') + '>' +
+        '<div class="app-link-info">' +
+          '<div class="app-link-title">' + escapeHTML(a.title) + '</div>' +
+          '<div class="app-link-desc">' + escapeHTML(a.desc) + '</div>' +
+        '</div><div class="app-link-arrow">' + (a.action ? '←' : '→') + '</div></div>';
+    }).filter(Boolean).join('');
+    body.innerHTML = html || '<div style="text-align:center;color:#94a3b8;padding:30px 0;font-size:13px;">関連アプリはありません</div>';
+  }
+  document.getElementById('appsBtn').addEventListener('click', function () {
+    renderAppsModal();
+    document.getElementById('appsModal').classList.add('open');
+  });
+  document.getElementById('appsClose').addEventListener('click', function () {
+    document.getElementById('appsModal').classList.remove('open');
+  });
+  document.getElementById('appsModal').addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+  document.getElementById('appsBody').addEventListener('click', function (e) {
+    var card = e.target.closest('.app-link-card');
+    if (!card) return;
+    if (card.getAttribute('data-action') === 'portal') {
+      location.href = 'https://class.tama.net/~p225C0442/';
+      return;
+    }
+    var url = card.getAttribute('data-url');
+    if (url) window.open(url, '_blank');
+  });
+})();

@@ -16,6 +16,7 @@
       <a href="https://www.tokyodisneyresort.jp/tdl/daily/show.html" target="_blank" class="btn-official tdl-btn">🏰 TDL 運営状況 ↗</a>
       <a href="https://www.tokyodisneyresort.jp/tds/daily/show.html" target="_blank" class="btn-official tds-btn">🌋 TDS 運営状況 ↗</a>
     </div>
+    <button class="header-btn" id="appsBtn" style="margin-top:12px;background:rgba(255,255,255,0.1);border:1px solid var(--glass-border);color:var(--text-main);padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s">関連アプリ</button>
   </header>
 
   <main>
@@ -99,6 +100,16 @@
       </details>
     </section>
   </main>
+
+  <div class="modal-overlay" id="appsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>関連アプリ</h2>
+        <button class="modal-close" id="appsClose">×</button>
+      </div>
+      <div class="modal-body" id="appsBody"></div>
+    </div>
+  </div>
 
   <footer>
     <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>

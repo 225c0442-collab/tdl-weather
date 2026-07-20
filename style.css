@@ -165,3 +165,43 @@ footer a { color: var(--text-sub); text-decoration: none; font-size: 0.75rem; }
   .btn-official { width: 100%; max-width: none; }
   .add-location-form { flex-direction: column; }
 }
+
+/* ===== 関連アプリモーダル ===== */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 5000;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: all 0.25s;
+}
+.modal-overlay.open { opacity: 1; visibility: visible; }
+.modal-content {
+  background: #1e293b; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px; width: 90%; max-width: 420px;
+  max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  transform: scale(0.95); transition: transform 0.25s;
+}
+.modal-overlay.open .modal-content { transform: scale(1); }
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.modal-header h2 { margin: 0; font-size: 15px; color: #f8fafc; border: none; padding: 0; }
+.modal-close {
+  background: none; border: none; color: #94a3b8;
+  font-size: 20px; cursor: pointer; padding: 0; line-height: 1;
+}
+.modal-close:hover { color: #f8fafc; }
+.modal-body { padding: 16px 20px; overflow-y: auto; }
+.app-link-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-radius: 12px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer; transition: all 0.2s; margin-bottom: 8px;
+}
+.app-link-card:hover { background: rgba(255,255,255,0.1); }
+.app-link-info { flex: 1; min-width: 0; }
+.app-link-title { font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 2px; }
+.app-link-desc { font-size: 11px; color: #94a3b8; }
+.app-link-arrow { font-size: 14px; color: #94a3b8; font-weight: 700; padding-left: 12px; }
+.app-link-card:hover .app-link-arrow { color: #f8fafc; }
