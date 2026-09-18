@@ -224,7 +224,6 @@ function setupSelectBox() {
     else if (i < 3) text += " (過去)";
     option.text = text;
     
-    // ▼ プルダウンの土日の色付け ▼
     if (dayOfWeek === 0) option.style.color = "red";
     if (dayOfWeek === 6) option.style.color = "blue";
     
@@ -263,18 +262,16 @@ function renderAll() {
   let windRow = '<tr><th>最大風速<br><small>(風向)</small></th>'; 
   let precipRow = '<tr><th>降水量</th>';
   
-  let reachRow = ''; let believeRow = ''; let fwRow = '';
+  let believeRow = ''; let fwRow = '';
   if (isMaihama()) {
-    reachRow = '<tr><th style="line-height: 1.4;">Reach for the Stars<br><small>🏰 19:30</small></th>';
     believeRow = '<tr><th style="line-height: 1.4;">ビリーヴ！<br><span style="font-size: 0.7rem; font-weight: normal;">～シー・オブ・ドリームス～</span><br><small>🌋 20:30</small></th>';
-    fwRow = '<tr><th style="line-height: 1.4;">スカイ・フル・オブ・カラーズ<br><small>🎆 20:30</small></th>'; 
+    fwRow = '<tr><th style="line-height: 1.4;">花火<br><small>🎆 20:30</small></th>'; 
   }
 
   for (let i = 0; i < daily.time.length; i++) {
     const colClass = (i === targetIndex) ? ` class="target-col clickable-col" onclick="changeTargetDate(${i})"` : ` class="clickable-col" onclick="changeTargetDate(${i})"`;
     const rawDateStr = daily.time[i];
     
-    // ▼ 日付から曜日を取得し、土日の色付けクラスをセット ▼
     const dObj = new Date(rawDateStr);
     const dayOfWeek = dObj.getDay();
     let dayClass = "";
@@ -299,28 +296,27 @@ function renderAll() {
     if (isMaihama()) {
       const hIdx = i * 24;
       
-      const reachWind = hourly.wind_speed_10m[hIdx + 19];
-      const reachWeather = hourly.weather_code[hIdx + 19];
-      const reachRain = hourly.precipitation[hIdx + 19];
-      
       const believeWind = hourly.wind_speed_10m[hIdx + 20];
       const believeWeather = hourly.weather_code[hIdx + 20];
       const believeRain = hourly.precipitation[hIdx + 20];
 
-      reachRow += `<td${colClass}>${judgeReach(reachWind, reachRain, reachWeather)}<br><small>(${reachWind}m/s)</small></td>`;
       believeRow += `<td${colClass}>${judgeBelieve(believeWind, believeRain, believeWeather)}<br><small>(${believeWind}m/s)</small></td>`;
       
-      if (isFwSuspended(rawDateStr)) fwRow += `<td${colClass}><span class="status-suspend">休止期間</span></td>`;
-      else fwRow += `<td${colClass}>${judgeFireworks(believeWind, believeWeather)}<br><small>(${believeWind}m/s)</small></td>`;
+      // 花火の判定ロジック
+      const fwInfo = getFwInfo(rawDateStr);
+      if (fwInfo.suspended) {
+        fwRow += `<td${colClass}><span class="status-suspend">休止期間</span></td>`;
+      } else {
+        fwRow += `<td${colClass}>${judgeFireworks(believeWind, believeWeather)}<br><small style="font-size: 0.7rem;">(${fwInfo.short} ${believeWind}m/s)</small></td>`;
+      }
     }
   }
 
   let tbodyHtml = `${weatherRow}</tr>${maxTempRow}</tr>${minTempRow}</tr>${windRow}</tr>${precipRow}</tr>`;
-  if (isMaihama()) tbodyHtml += `${reachRow}</tr>${believeRow}</tr>${fwRow}</tr>`;
+  if (isMaihama()) tbodyHtml += `${believeRow}</tr>${fwRow}</tr>`;
 
   document.getElementById('daily-table').innerHTML = `<thead>${headerRow}</tr></thead><tbody>${tbodyHtml}</tbody>`;
 
-  // ▼ 詳細タイトルの曜日も色付け ▼
   let hTitleText = dateFormat(daily.time[targetIndex], 0);
   if (targetIndex === 3) hTitleText += " (今日)";
   else if (targetIndex < 3) hTitleText += " (過去)";
@@ -352,7 +348,7 @@ function renderAll() {
 
     if (isToday && j === currentHour) {
       colClass = ' class="current-hour-col"';
-    } else if (isMaihama() && (j === 19 || j === 20)) {
+    } else if (isMaihama() && j === 20) { // ビリーヴ・花火の時間
       colClass = ' class="target-col"';
     }
 
@@ -419,7 +415,7 @@ function shareForecast() {
   const daily = weatherData.daily;
   const hourly = weatherData.hourly;
   const rawDateStr = daily.time[targetIndex];
-  const dateStr = dateFormat(rawDateStr, 0); // 曜日入りの日付
+  const dateStr = dateFormat(rawDateStr, 0);
   const wmo = getWMO(daily.weather_code[targetIndex]);
   const maxT = daily.temperature_2m_max[targetIndex];
   const minT = daily.temperature_2m_min[targetIndex];
@@ -429,21 +425,19 @@ function shareForecast() {
   if (isMaihama()) {
     const hIdx = targetIndex * 24;
     
-    const reachWind = hourly.wind_speed_10m[hIdx + 19];
-    const reachRain = hourly.precipitation[hIdx + 19];
-    const reachWeather = hourly.weather_code[hIdx + 19];
-    
     const believeWind = hourly.wind_speed_10m[hIdx + 20];
     const believeRain = hourly.precipitation[hIdx + 20];
     const believeWeather = hourly.weather_code[hIdx + 20];
 
-    const reachText = getPlainReachJudge(reachWind, reachRain, reachWeather);
     const believeText = getPlainBelieveJudge(believeWind, believeRain, believeWeather);
     
-    let fwText = getPlainFwJudge(believeWind, believeWeather);
-    if (isFwSuspended(rawDateStr)) fwText = "休止期間";
+    const fwInfo = getFwInfo(rawDateStr);
+    let fwText = "休止";
+    if (!fwInfo.suspended) {
+      fwText = `${getPlainFwJudge(believeWind, believeWeather)}(${fwInfo.name})`;
+    }
     
-    text = `【🏰 東京ディズニーリゾート 天気・ショー予想 🌋】\n🗓️ ${dateStr} の予報\n天気: ${wmo}\n気温: ${maxT}℃ / ${minT}℃\n\n🎆花火: ${fwText}\n🏰リーチ: ${reachText}\n🌋ビリーヴ: ${believeText}\n※非公式の予測です`;
+    text = `【🏰 東京ディズニーリゾート 天気・ショー予想 🌋】\n🗓️ ${dateStr} の予報\n天気: ${wmo}\n気温: ${maxT}℃ / ${minT}℃\n\n🎆花火: ${fwText}\n🌋ビリーヴ: ${believeText}\n※非公式の予測です`;
   }
 
   if (navigator.share) {
@@ -459,18 +453,6 @@ function getWindDir(deg) {
   return dirs[Math.round(deg / 22.5) % 16];
 }
 
-function judgeReach(wind, rain, weatherCode) {
-  if (wind === undefined || wind === null) return '--';
-  if (weatherCode >= 95) return '<span class="status-cancel">× 中止</span><br><small>(雷雨)</small>'; 
-  if (wind <= 4.0 && rain < 1.0) return '<span class="status-ok">◯ 通常版</span>'; 
-  return '<span class="status-wind">△ 風/雨Ver.</span>'; 
-}
-function getPlainReachJudge(wind, rain, weatherCode) {
-  if (weatherCode >= 95) return "❌中止(雷雨)";
-  if (wind <= 4.0 && rain < 1.0) return "⭕️通常版";
-  return "⚠️風/雨バージョン";
-}
-
 function judgeBelieve(wind, rain, weatherCode) {
   if (wind === undefined || wind === null) return '--';
   if (weatherCode >= 95) return '<span class="status-cancel">× 中止</span><br><small>(雷雨)</small>';
@@ -479,6 +461,7 @@ function judgeBelieve(wind, rain, weatherCode) {
   if (wind <= 4.0) return '<span class="status-ok">◯ 通常版</span>'; 
   return '<span class="status-wind">△ 風Ver.</span>'; 
 }
+
 function getPlainBelieveJudge(wind, rain, weatherCode) {
   if (weatherCode >= 95) return "❌中止(雷雨)";
   if (rain >= 2.0) return "❌中止(雨量)";
@@ -487,17 +470,30 @@ function getPlainBelieveJudge(wind, rain, weatherCode) {
   return "⚠️風バージョン";
 }
 
+// ▼ 追加：花火の公演名と休止判定を取得する関数 ▼
+function getFwInfo(dateStr) {
+  // ハロウィーン期間
+  if (dateStr >= "2026-09-16" && dateStr <= "2026-10-31") {
+    return { name: "ナイトハイ・ハロウィーン", short: "ハロウィーン", suspended: false };
+  }
+  // クリスマス期間
+  if (dateStr >= "2026-11-11" && dateStr <= "2026-12-25") {
+    return { name: "スターブライト・クリスマス", short: "クリスマス", suspended: false };
+  }
+  // 完全に花火が休止になる日
+  if (dateStr === "2026-09-15" || dateStr === "2027-01-28" || dateStr === "2027-02-26") {
+    return { name: "休止", short: "", suspended: true };
+  }
+  // 上記以外はカラーズ
+  return { name: "スカイ・フル・オブ・カラーズ", short: "カラーズ", suspended: false };
+}
+
 function getPlainFwJudge(wind, weatherCode) {
   if (weatherCode >= 61 && weatherCode <= 67 || weatherCode >= 95) return "❌中止(雨/雷)";
   if (wind <= 4.5) return "⭕️開催予定";
   return "❌上空風中止濃厚";
 }
-function isFwSuspended(dateStr) {
-  if (dateStr >= "2026-06-15" && dateStr <= "2026-09-14") return true;
-  if (dateStr === "2026-10-02") return true;
-  if (dateStr === "2026-12-04") return true;
-  return false;
-}
+
 function judgeFireworks(wind, weatherCode) {
   if (wind === undefined || wind === null) return '--';
   if (weatherCode >= 61 && weatherCode <= 67 || weatherCode >= 95) return '<span class="status-cancel">× 中止</span><br><small>(雨/雷)</small>';
@@ -505,10 +501,9 @@ function judgeFireworks(wind, weatherCode) {
   return '<span class="status-cancel">× 上空風中止</span>';
 }
 
-// ▼ 変更：曜日の取得と表示を追加 ▼
 function dateFormat(date, mode) {
   let d = new Date(date);
-  const wd = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]; // 曜日配列
+  const wd = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]; 
   
   if (mode == 1) {
     return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日(${wd}) ${addZero(d.getHours())}:${addZero(d.getMinutes())}:${addZero(d.getSeconds())}`;
@@ -524,7 +519,6 @@ function getWMO(w) {
   return w;
 }
 
-// ===== 関連アプリモーダル =====
 (function () {
   if (!document.getElementById('appsBtn')) return;
   var apps = [
