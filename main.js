@@ -2,7 +2,7 @@ const MAIHAMA = { id: "maihama", name: "東京ディズニーリゾート", lat:
 
 function escapeHTML(str) {
   return str.replace(/[&<>'"]/g, function(match) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[match];
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;' }[match];
   });
 }
 
@@ -262,10 +262,17 @@ function renderAll() {
   let windRow = '<tr><th>最大風速<br><small>(風向)</small></th>'; 
   let precipRow = '<tr><th>降水量</th>';
   
-  let believeRow = ''; let fwRow = '';
+  let paradeRow = ''; let believeRow = ''; let fwRow = '';
   if (isMaihama()) {
+    // ▼ 変更：パレードの名前を日付によって切り替え ▼
+    const targetParadeInfo = getParadeInfo(daily.time[targetIndex]);
+    paradeRow = `<tr><th style="line-height: 1.4;">${targetParadeInfo.title}<br><small>🏰 15:00頃</small></th>`;
+    
     believeRow = '<tr><th style="line-height: 1.4;">ビリーヴ！<br><span style="font-size: 0.7rem; font-weight: normal;">～シー・オブ・ドリームス～</span><br><small>🌋 20:30</small></th>';
-    fwRow = '<tr><th style="line-height: 1.4;">花火<br><small>🎆 20:30</small></th>'; 
+    
+    const targetFwInfo = getFwInfo(daily.time[targetIndex]);
+    const fwTitle = targetFwInfo.suspended ? "花火（休止）" : targetFwInfo.name;
+    fwRow = `<tr><th style="line-height: 1.4;">${fwTitle}<br><small>🎆 20:30</small></th>`; 
   }
 
   for (let i = 0; i < daily.time.length; i++) {
@@ -296,24 +303,29 @@ function renderAll() {
     if (isMaihama()) {
       const hIdx = i * 24;
       
+      const paradeWind = hourly.wind_speed_10m[hIdx + 15];
+      const paradeWeather = hourly.weather_code[hIdx + 15];
+      const paradeRain = hourly.precipitation[hIdx + 15];
+      const paradeTemp = hourly.temperature_2m[hIdx + 15];
+
       const believeWind = hourly.wind_speed_10m[hIdx + 20];
       const believeWeather = hourly.weather_code[hIdx + 20];
       const believeRain = hourly.precipitation[hIdx + 20];
 
-      believeRow += `<td${colClass}>${judgeBelieve(believeWind, believeRain, believeWeather)}<br><small>(${believeWind}m/s)</small></td>`;
+      paradeRow += `<td${colClass}>${judgeParade(paradeWind, paradeRain, paradeTemp, paradeWeather)}<br><small style="font-size: 0.7rem;">(${paradeWind}m/s)</small></td>`;
+      believeRow += `<td${colClass}>${judgeBelieve(believeWind, believeRain, believeWeather)}<br><small style="font-size: 0.7rem;">(${believeWind}m/s)</small></td>`;
       
-      // 花火の判定ロジック
       const fwInfo = getFwInfo(rawDateStr);
       if (fwInfo.suspended) {
         fwRow += `<td${colClass}><span class="status-suspend">休止期間</span></td>`;
       } else {
-        fwRow += `<td${colClass}>${judgeFireworks(believeWind, believeWeather)}<br><small style="font-size: 0.7rem;">(${fwInfo.short} ${believeWind}m/s)</small></td>`;
+        fwRow += `<td${colClass}>${judgeFireworks(believeWind, believeWeather)}<br><small style="font-size: 0.7rem;">(${believeWind}m/s)</small></td>`;
       }
     }
   }
 
   let tbodyHtml = `${weatherRow}</tr>${maxTempRow}</tr>${minTempRow}</tr>${windRow}</tr>${precipRow}</tr>`;
-  if (isMaihama()) tbodyHtml += `${believeRow}</tr>${fwRow}</tr>`;
+  if (isMaihama()) tbodyHtml += `${paradeRow}</tr>${believeRow}</tr>${fwRow}</tr>`;
 
   document.getElementById('daily-table').innerHTML = `<thead>${headerRow}</tr></thead><tbody>${tbodyHtml}</tbody>`;
 
@@ -348,7 +360,7 @@ function renderAll() {
 
     if (isToday && j === currentHour) {
       colClass = ' class="current-hour-col"';
-    } else if (isMaihama() && j === 20) { // ビリーヴ・花火の時間
+    } else if (isMaihama() && (j === 15 || j === 20)) { 
       colClass = ' class="target-col"';
     }
 
@@ -425,19 +437,27 @@ function shareForecast() {
   if (isMaihama()) {
     const hIdx = targetIndex * 24;
     
+    const paradeWind = hourly.wind_speed_10m[hIdx + 15];
+    const paradeRain = hourly.precipitation[hIdx + 15];
+    const paradeWeather = hourly.weather_code[hIdx + 15];
+    const paradeTemp = hourly.temperature_2m[hIdx + 15];
+
     const believeWind = hourly.wind_speed_10m[hIdx + 20];
     const believeRain = hourly.precipitation[hIdx + 20];
     const believeWeather = hourly.weather_code[hIdx + 20];
 
+    const paradeInfo = getParadeInfo(rawDateStr);
+    const paradeText = getPlainParadeJudge(paradeWind, paradeRain, paradeTemp, paradeWeather);
     const believeText = getPlainBelieveJudge(believeWind, believeRain, believeWeather);
     
     const fwInfo = getFwInfo(rawDateStr);
-    let fwText = "休止";
+    let fwText = "休止期間";
     if (!fwInfo.suspended) {
-      fwText = `${getPlainFwJudge(believeWind, believeWeather)}(${fwInfo.name})`;
+      fwText = getPlainFwJudge(believeWind, believeWeather);
     }
     
-    text = `【🏰 東京ディズニーリゾート 天気・ショー予想 🌋】\n🗓️ ${dateStr} の予報\n天気: ${wmo}\n気温: ${maxT}℃ / ${minT}℃\n\n🎆花火: ${fwText}\n🌋ビリーヴ: ${believeText}\n※非公式の予測です`;
+    // ▼ 変更：シェア機能にもパレード名を反映 ▼
+    text = `【🏰 東京ディズニーリゾート 天気・ショー予想 🌋】\n🗓️ ${dateStr} の予報\n天気: ${wmo}\n気温: ${maxT}℃ / ${minT}℃\n\n🏰${paradeInfo.share}: ${paradeText}\n🎆${fwInfo.name}: ${fwText}\n🌋ビリーヴ: ${believeText}\n※非公式の予測です`;
   }
 
   if (navigator.share) {
@@ -451,6 +471,42 @@ function getWindDir(deg) {
   if (deg === null || deg === undefined) return '--';
   const dirs = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
   return dirs[Math.round(deg / 22.5) % 16];
+}
+
+// ▼ 追加：パレードの名前を日付で切り替えるための関数 ▼
+function getParadeInfo(dateStr) {
+  if (dateStr <= "2026-10-31") {
+    return { 
+      title: 'ザ・ヴィランズ・ハロウィーン<br><span style="font-size: 0.7rem; font-weight: normal;">“Into the Frenzy”</span>',
+      share: 'ヴィランズ'
+    };
+  }
+  return { 
+    title: 'パレード',
+    share: 'パレード'
+  };
+}
+
+function judgeParade(wind, rain, temp, weatherCode) {
+  if (wind === undefined || wind === null) return '--';
+  if (weatherCode >= 61 && weatherCode <= 67 || weatherCode >= 80 || weatherCode >= 95 || rain > 0) {
+    return '<span class="status-cancel">× 中止</span><br><small>(雨/雷)</small>';
+  }
+  if (temp >= 30.0) return '<span class="status-cancel">× 中止</span><br><small>(熱キャン)</small>';
+  if (wind >= 8.0) return '<span class="status-cancel">× 中止</span><br><small>(強風)</small>';
+  if (temp >= 27.0) return '<span class="status-wind">△ 変更あり</span><br><small>(高気温Ver)</small>';
+  if (wind >= 5.0) return '<span class="status-wind">△ 風Ver.</span>';
+  
+  return '<span class="status-ok">◯ 通常版</span>';
+}
+
+function getPlainParadeJudge(wind, rain, temp, weatherCode) {
+  if (weatherCode >= 61 || rain > 0) return "❌中止(雨キャン)";
+  if (temp >= 30.0) return "❌中止(熱キャン)";
+  if (wind >= 8.0) return "❌中止(強風キャン)";
+  if (temp >= 27.0) return "⚠️高気温バージョン";
+  if (wind >= 5.0) return "⚠️風バージョン";
+  return "⭕️通常版";
 }
 
 function judgeBelieve(wind, rain, weatherCode) {
@@ -470,22 +526,17 @@ function getPlainBelieveJudge(wind, rain, weatherCode) {
   return "⚠️風バージョン";
 }
 
-// ▼ 追加：花火の公演名と休止判定を取得する関数 ▼
 function getFwInfo(dateStr) {
-  // ハロウィーン期間
-  if (dateStr >= "2026-09-16" && dateStr <= "2026-10-31") {
-    return { name: "ナイトハイ・ハロウィーン", short: "ハロウィーン", suspended: false };
-  }
-  // クリスマス期間
-  if (dateStr >= "2026-11-11" && dateStr <= "2026-12-25") {
-    return { name: "スターブライト・クリスマス", short: "クリスマス", suspended: false };
-  }
-  // 完全に花火が休止になる日
   if (dateStr === "2026-09-15" || dateStr === "2027-01-28" || dateStr === "2027-02-26") {
-    return { name: "休止", short: "", suspended: true };
+    return { name: "休止期間", suspended: true };
   }
-  // 上記以外はカラーズ
-  return { name: "スカイ・フル・オブ・カラーズ", short: "カラーズ", suspended: false };
+  if (dateStr <= "2026-10-31") {
+    return { name: "ナイトハイ・ハロウィーン", suspended: false };
+  }
+  if (dateStr >= "2026-11-01" && dateStr <= "2026-12-25") {
+    return { name: "スターブライト・クリスマス", suspended: false };
+  }
+  return { name: "スカイ・フル・オブ・カラーズ", suspended: false };
 }
 
 function getPlainFwJudge(wind, weatherCode) {
@@ -513,7 +564,7 @@ function dateFormat(date, mode) {
 
 function addZero(n) { return n < 10 ? '0' + n : n; }
 function getWMO(w) {
-  if (w == 0) return '☀️'; if (w == 1) return '🌤'; if (w == 2) return '⛅️'; if (w == 3) return '☁️';
+  if (w == 0) return '☀️️'; if (w == 1) return '🌤'; if (w == 2) return '⛅️'; if (w == 3) return '☁️';
   if (w == 45 || w == 48) return '霧'; if (w >= 51 && w <= 57) return '霧雨'; if (w >= 61 && w <= 67) return '☔️';
   if (w >= 71 && w <= 77) return '❄️'; if (w >= 80 && w <= 82) return '☔️'; if (w >= 95) return '⚡️☔️';
   return w;
